@@ -1,0 +1,6 @@
+---
+title: Stats Final Project"
+author: "Nika Jurov"
+date: "12/22/2018"
+output: html_document
+---
