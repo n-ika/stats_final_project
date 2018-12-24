@@ -1,6 +1,286 @@
 ---
-title: Stats Final Project"
+title: "Statistics — Final Project"
 author: "Nika Jurov"
 date: "12/22/2018"
 output: html_document
 ---
+
+```{r include=FALSE}
+library(magrittr)
+library(dplyr)
+source("functions_final_project.R")
+```
+
+```{r include=FALSE}
+geom_data <- readr::read_csv("geomphon_pilot_results_for_analysis.csv")
+```
+
+The data used in this final project is the results data from the Geomphon pilot experiment. It has the same structure as the `STRUT vowel` experiment I want to analyse, except for some minor differences. These differences are: the ABX test was done with a different type of stimuli - they were meant to test consonant and vowel discrimination, while the `STRUT data` only tests the vowel discrimination. Since this is an exercice for analyzing the real data later on, I will not make any difference between C and V analysis. In addition, I will analyze only one type of distance difference (the subtraction), even though other types of distances could reveal a different result.
+
+Since this pilot data has no computational model ABX results, I am not including this part, but I am including, at the end, an analysis proposition.
+
+In the table, the important columns for this project are: 
+
+* the column indicating the correct/incorrect participant response `user_corr`,
+* the column with distances subtraction `delta_dist_sub`, 
+* the columns with phones: `phone_TGT`, `phone_OTH`, `phone_X` [this theoretically corresponds to French and English vowel I want to compare in the `STRUT data` experiment].
+
+**There are XXXX parts of the analysis:**
+
+* 1) I show which phoneme couple (`TGT` vs. `OTH`) has the lowest discrimination rate for each participant subgroup (I filter them by `language`).
+* 2) I check what the distances differences predict.
+* 3) I compare the human responses to the acoustic distances.
+* 4) I do the order statistics to check which couple of sounds has the lowest discrimination rate with bootstrapping.
+
+## 1) LOWEST DISCRIMINATION PER LANGUAGE GROUP
+
+```{r include=FALSE}
+fr_summary <- lang_filter(geom_data, "French")
+eng_summary <- lang_filter(geom_data, "English")
+```
+
+
+
+```{r echo=FALSE}
+fr_combo <- fr_summary %>%
+      dplyr::mutate(
+        combo1 = 
+          paste(phone_TGT, phone_OTH, sep="-"),
+        combo2 =
+          paste(phone_OTH, phone_TGT, sep="-")) %>%
+      dplyr::group_by(combo1, combo2) %>%
+      dplyr::summarise(correct_resp = mean(correct_resp)) %>%
+      dplyr::ungroup()
+
+
+fr_triangle <- make_triangle(fr_combo)
+
+fr_triangle  <- fr_triangle %>%
+          dplyr::group_by(combo1) %>%
+          dplyr::summarise(correct_resp = mean(correct_resp)) %>%
+          dplyr::ungroup() %>%
+          tidyr::separate(combo1, c("phone_TGT", "phone_OTH"), sep = "-")
+          
+
+test_plot <- plot_corr_resp(fr_triangle,
+                              "French speakers — discrimination rate 
+                                - upper triangle",
+                              0.67)
+test_plot
+```
+
+
+```{r include=FALSE}
+
+fr_spk_plot <- plot_corr_resp(fr_summary,
+                              "French speakers — discrimination rate",
+                              0.67)
+eng_spk_plot <- plot_corr_resp(eng_summary,
+                              "English speakers — discrimination rate",
+                              0.67)
+```
+
+
+English speakers have most problems with [θ] - [f] contrast, then with [ʊ] - [u] and [ʊ] - [ʌ]. This seems correct, as these sounds are also phonologically quite close.
+
+
+```{r echo=FALSE}
+eng_spk_plot
+```
+
+French speakers have most problems with [θ] - [f] contrast. Interestingly, they also show bad discrimination for [θ] - [s] (unlike the English speakers) and a worse discrimination of [æ] - [ɑ] than the English speakers. This might be the native language effect.
+
+```{r echo=FALSE}
+fr_spk_plot
+test_plot
+```
+
+
+
+
+
+
+## 2) LOWEST DISCRIMINATION PREDICTED BY ACOUSTIC DISTANCES
+```{r include=FALSE}
+corr_resp_mfcc <- geom_data %>%
+  dplyr::group_by(tripletid, distance_OTH, distance_TGT) %>%
+  dplyr::mutate(
+    correct_resp = ifelse(
+      (distance_OTH - distance_TGT) > 0, 1, 0))
+
+mfcc_perc_error <- corr_resp_mfcc %>%
+  dplyr::group_by(phone_TGT, phone_OTH) %>%
+  dplyr::summarise(correct_resp = mean(correct_resp)) %>%
+  dplyr::ungroup()
+
+
+dist_prediction_plot <- plot_corr_resp(mfcc_perc_error,
+                                       "Distances — discrimination rate prediction",
+                                       0.5)
+```
+
+```{r echo=FALSE}
+dist_prediction_plot
+```
+
+
+## 3) HUMAN RESPONSES VS. ACOUSTIC DISTANCES
+
+
+```{r include=FALSE}
+logit <- function(p) {
+  return(log(p/(1-p)))
+}
+```
+
+```{r echo = FALSE}
+human_mfcc_summary <- corr_resp_mfcc %>%
+  dplyr::group_by(phone_TGT, phone_OTH) %>%
+  dplyr::summarise(human_resp = mean(user_corr),
+                   mfcc_resp = mean(correct_resp)) %>%
+  dplyr::ungroup()
+
+
+ggplot2::ggplot(human_mfcc_summary, 
+                ggplot2::aes(x=mfcc_resp,
+                             y=human_resp)) +
+                ggplot2::geom_text(
+                  ggplot2::aes(label=paste(phone_TGT, 
+                                           phone_OTH, 
+                                           sep="-")),
+                  check_overlap = TRUE) +
+                ggplot2::labs(title = "Distances predictions vs. human responses",
+                              x = "Predictions by distances",
+                              y = "Human discrimination")
+
+```
+
+From the plot above we see that this relation is not linear. Ideally one would think that the further away the distances, the better the discrimination rate (because less sound similarity would mean a better sound distinction). 
+I take the *acoustic distances* as the **predictor** and the *human responses* as the **dependent variable**.
+
+If we keep the distances as they are without using the means, we see that they will be grouped either at 0 or at 1. This is not a good fit for a linear model, but for a logistic one.
+
+I changed the distances into predicted responses: if the subtraction of the distance `phone_OTH and phone_X` minus the distance `phone_TGT and phone_X` is not bigger than 0, the predicted response is 0, otherwise 1. This means that the mean responses predicted by distances should correspond to some number between 0 and 1. However, since there is only a few examples per each pair, there are three visible means the distances predict: 0, 0.25, 0.5 or 1. This does not really help with knowing whether the acoustic distances have or do not have any influence on human responses.
+
+In order to verify this, we first need to inspect the plot and the means of the correct responses predicted by the distances and as replied by humans. 
+
+```{r}
+mean(corr_resp_mfcc$correct_resp)
+mean(corr_resp_mfcc$user_corr)
+```
+
+
+The means are nearly identical (*distances mean*: `0.7571602`, *humans mean*: `0.7674015`). However, there is a big difference in their *"criteria"* that give these results. Humans will rely on many critera, like the acoustic proximity, the top-down interference, the duration, the voice (pitch, color etc.) similarity, their native language and so on. Even though the lexical knowledge should not play any role since these were non words, one never knows what a CVC syllable could evoke in someone's head when hearing it. 
+
+On the other hand, the acoustic distances differences come from MFCC vectors, which predict the correct response according to the subtraction result. Their criteria is the acoustic proximity between the `d(TGT-X)` and `d(OTH-X)`, where we would want `d(OTH-X) > d(TGT-X)`. First, this cannot be equated with human perception. Second, the results show that even though the mean is very similar, the pairs which were discriminated correctly are often not the same as those predicted by the distances. I think this is because of *how* the pair is judged (the criteria used), even though the means seem to show similar results.
+
+```{r echo=FALSE}
+cor.test(human_mfcc_summary$mfcc_resp, human_mfcc_summary$human_resp)
+```
+
+
+Correlation coefficient `R=0.44` shows that indeed there is some correlation, but not much. Let's now do the logistic regression to check whether the acoustic distances have or do not have any real influence (i.e. are they significantlly influencing the human discrimination). The null hypothesis is that they have no effect on results, while the alternative is that they do have an effect. With `glm()` model using the method `family=binomial` we get `p=4.282809e-08`. This means that indeed, there is the acoustic distance effect and we can reject the H0.
+
+
+```{r echo = FALSE}
+logit_m <- glm(user_corr ~ correct_resp, data = corr_resp_mfcc, family=binomial(link='logit'))
+
+#coef(summary(logit_m))
+coef(summary(logit_m))[2,4]
+```
+
+To check the power of this analysis, I decided to permute the acoustic distances predictions with replacement. In this way, I generate many samples and do the logistic regression test on each of them. The successful sample has a p value smaller than 0.05 and this is how the power is predicted: by dividing the number of successful samples by the number of all tests. We get the power of 1 which makes sense - because we would need very few correct responses `1` to get a p value that is bigger than 0.05.
+
+
+```{r include = FALSE}
+geom_subset <- corr_resp_mfcc %>%
+               dplyr::select(tripletid,
+                             phone_TGT,
+                             phone_OTH,
+                             distance_TGT,
+                             distance_OTH,
+                             user_corr,
+                             correct_resp)
+
+```
+
+```{r include = FALSE}
+power_df <- NULL
+alpha <- 0.5
+SAMPLE_SIZES <- c(10, 50, 100, 400, 1000, 5000)
+for (size in SAMPLE_SIZES) {
+  n_tests <- 1000
+  n_successes <- 0
+  for (i in 1:n_tests) {
+  
+          geom_permuted <- geom_subset %>%
+                           dplyr::group_by(correct_resp) %>%
+                           dplyr::sample_n(dim(geom_subset)[1],
+                                            replace = TRUE) %>%
+                           dplyr::ungroup() %>%
+                           dplyr::group_by(user_corr) %>%
+                           dplyr::sample_n(dim(geom_subset)[1],
+                                            replace = TRUE) %>%
+                           dplyr::ungroup()
+          
+          fake_logit_m <- glm(user_corr ~ correct_resp, 
+                          data = geom_permuted, 
+                          family=binomial(link='logit'))
+          mean_diff <- mean(geom_permuted$user_corr) -
+                          mean(geom_permuted$correct_resp)
+
+          pval <-  coef(summary(fake_logit_m))[2,4]
+          
+          #means_permuted[i] <- mean_permuted
+          if (pval < alpha) {
+          n_successes <- n_successes + 1
+          }
+  }
+      power <- n_successes/n_tests
+      power_df_current <- tibble::data_frame(
+        power=power, 
+        alpha=alpha
+      )
+      power_df <- dplyr::bind_rows(power_df, power_df_current)
+}
+```
+
+```{r include = FALSE}
+means_permuted <- rep(0, 9999)
+for (i in 1:9999) {
+          permuted_geom <- dplyr::data_frame(tripletid = 
+                                   geom_subset$tripletid,
+                                   permuted_mfcc = sample(
+                                   geom_subset$correct_resp, 
+                                   dim(geom_subset)[1],
+                                   replace = TRUE),
+                                   permuted_human = sample(
+                                   geom_subset$user_corr, 
+                                   dim(geom_subset)[1],
+                                   replace = TRUE))
+  
+          mean_diff <- mean(permuted_geom$permuted_mfcc) - 
+                        mean(permuted_geom$permuted_human)
+          means_permuted[i] <- mean_diff
+}
+
+means_permuted_df <- dplyr::data_frame(means_permuted=means_permuted)
+
+```
+
+```{r echo=FALSE}
+obs_mean_diff <- mean(geom_subset$correct_resp) -
+                 mean(geom_subset$user_corr)
+means_permuted_plot <- ggplot2::ggplot(means_permuted_df,
+                       ggplot2::aes(x = means_permuted)) +
+                       ggplot2::geom_histogram(bins = 100, alpha=0.5) +
+                       ggplot2::geom_vline(xintercept = obs_mean_diff) +
+                       ggplot2::labs(title ="Differences of the permuted means", 
+                       x = "Mean of mfcc responses - mean of human responses", 
+                       y = "Count")
+means_permuted_plot
+```
+In case of mean difference and the permutation test, the result is the same: the observed mean difference is at the center of the distribution of the permuted mean differences.
+
+This does not tell us much - only that we can reject the H0 which states that the acoustic predictions have no influence on human responses. But to me it is interesting to know which pair specifically was influenced by the distance more than another and if so, are the responses accordingly correct or wrong.
+
