@@ -258,22 +258,10 @@ knitr::kable(pval_logit_summary,
 To check the power of this statistical analysis, I decided to permute the acoustic distances predictions with replacement. In this way, I generate many samples and do the logistic regression test on each of them. The successful sample has a p value smaller than 0.05 and this is how the power is predicted: by dividing the number of successful samples by the number of all tests. We get the power of 1 which makes sense - because we would need very few correct responses `1` to get a p value that is bigger than 0.05. I also checked this with p value being smaller than 0.0001.
 
 
-```{r include = FALSE}
-geom_subset <- corr_resp_mfcc %>%
-               dplyr::select(tripletid,
-                             phone_TGT,
-                             phone_OTH,
-                             distance_TGT,
-                             distance_OTH,
-                             user_corr,
-                             correct_resp)
-
-```
-
 ```{r echo = FALSE}
 
-alpha05 <- statistical_power(geom_subset, 0.05)
-alpha001 <- statistical_power(geom_subset, 0.0001)
+alpha05 <- statistical_power(corr_resp_mfcc, 0.05)
+alpha001 <- statistical_power(corr_resp_mfcc, 0.0001)
 
 summary_power <- dplyr::bind_rows(alpha05,
                                   alpha001)
@@ -286,11 +274,11 @@ means_permuted <- rep(0, 9999)
 for (i in 1:9999) {
           permuted_geom <- dplyr::data_frame(
                                    permuted_english = sample(
-                                   corr_resp_mfcc_EN$user_corr, 
+                                   c(0,1), 
                                    (dim(corr_resp_mfcc)[1]/2),
                                    replace = TRUE),
                                    permuted_french = sample(
-                                   corr_resp_mfcc_FR$user_corr, 
+                                   c(0,1),
                                    (dim(corr_resp_mfcc)[1]/2),
                                    replace = TRUE))
   
@@ -318,12 +306,12 @@ means_permuted_plot
 ```
 I checked if there is a significant difference between the responses of the two different native language groups.
 
-When checking the mean difference with permutation, the observed mean difference is at the center of the distribution of the permuted mean differences. The number of the observed mean difference is quite small and close to zero (`-0.056`). It therefore makes sense that the permutation result gives a gaussian distribution with the observed mean difference centered at it's mean.
+When checking the mean difference with permutation, the observed mean difference is removed from the center of the distribution of the permuted mean differences. The two groups were simulated by having the 0.5 probability of having responses 0 or 1. The number of the observed mean difference is quite small and close to zero (`-0.056`). However, when permuting the values we see that the observed mean difference lies outside the distribution of the permuted mean differences which are centered at 0.
 
 
-This and the previous results show that we can reject the H0 which states that the acoustic predictions have no influence on human responses. We also see that the observed mean difference between the two groups separated by native language is close to 0. Globally, we can conclude that acoustic distances have influence on perception and that there is no significant difference between the two language groups.
+This and the previous results show that we can reject the H0 which states that the acoustic predictions have no influence on human responses. We also see that the observed mean difference between the two groups separated by native language is not exactly 0. Globally, we can conclude that acoustic distances have influence on perception and that there is some significant difference between the two language groups.
 
-But to me it is interesting to know which pair specifically was influenced by the distance more than another and was problematic for a language group and if so, are the responses accordingly correct or wrong.
+But to me it is interesting to know which pair specifically was influenced by the distance more than another and was problematic for a language group.
 
 
 ## 4) ORDER STATISTICS OF WORSE DISCRIMINATED SOUND PAIRS
