@@ -271,6 +271,8 @@ knitr::kable(summary_power)
 
 ```{r include = FALSE}
 means_permuted <- rep(0, 9999)
+n_successes <- rep(0, 9999)
+alpha <- 0.05
 for (i in 1:9999) {
           permuted_geom <- dplyr::data_frame(
                                    permuted_english = sample(
@@ -282,14 +284,14 @@ for (i in 1:9999) {
                                    (dim(corr_resp_mfcc)[1]/2),
                                    replace = TRUE))
   
-         
           mean_diff <- mean(permuted_geom$permuted_english) - 
                         mean(permuted_geom$permuted_french)
           means_permuted[i] <- mean_diff
+      
+       
 }
 
 means_permuted_df <- dplyr::data_frame(means_permuted=means_permuted)
-
 ```
 
 ```{r echo=FALSE}
@@ -314,39 +316,83 @@ This and the previous results show that we can reject the H0 which states that t
 But to me it is interesting to know which pair specifically was influenced by the distance more than another and was problematic for a language group.
 
 
-## 4) ORDER STATISTICS OF WORSE DISCRIMINATED SOUND PAIRS
+## 4) ORDER STATISTICS
 
-To understand if the less well discriminated pairs (e.g., [θ] - [f]) are more influenced by the acoustics than the other pairs, I will check the order of the pairs by their order of discrimination rate.
+To understand if the problematic (meaning, more difficult to discriminate) phone pairs (e.g., [θ] - [f]) are similar for each language group, I decided to do the order statistics. 
+
+I compare:
+
+1) order of English vs. order of French listeners (participants);
+2) order of all participants vs. order of French participants;
+3) order of all participants vs. order of English participants.
+
+I first order the data frames according to the mean of the correct response: from the smallest to the highest value. In this way, I obtain the order of the phone pairs which I then fit into a linear model. By using the `Boot` package, I verify the model with bootstrapping - simulating the sampling distribution of the coefficient. We can see the bootstrapped coefficient in the histograms below; the H0 here is that coefficient is 0 and has no influence on the data. 
+
+Of course, the orders do not influence one another, but I chose the linear model because they graphically resemble to it.
+
+Comparing the order 1), the plot seems slightly linear, but it is not graphically completely clear. However, orders 2) and 3) seem graphically linear.
+
+```{r echo=FALSE}
+plot(order(ordered_EN$combo1), order(ordered_FR$combo1))
+plot(order(ordered_EN$combo1), order(ordered_all$combo1))
+plot(order(ordered_FR$combo1), order(ordered_all$combo1))
+```
+
+
+In addition, the idea is only to compare the orders and see how much they match. Perhaps this is not the best way to do it, but I did not know how else to do it (one option could be - as far as internet says - Wilcoxon test, checking the medians of the orders, but I do not see why one is more appropriate than the other). Wilcoxon test confirms that the orders are significantly different from one another, meaning each language group discriminates better (or worse) different phone pairs.
+
+```{r echo=FALSE}
+wilcox.test(order(ordered_EN$combo1), 
+            order(ordered_FR$combo1), paired=TRUE)
+wilcox.test(order(ordered_EN$combo1), 
+            order(ordered_all$combo1), paired=TRUE)
+wilcox.test(order(ordered_FR$combo1), 
+            order(ordered_all$combo1), paired=TRUE)
+```
+
+
+```{r echo=FALSE}
+all_spk <- geom_data %>%
+    dplyr::group_by(phone_TGT, phone_OTH) %>%
+    dplyr::summarise(correct_resp = mean(user_corr)) %>%
+    dplyr::ungroup()
+
+ordered_all <- make_pairs(all_spk)
+ordered_FR <- make_pairs(fr_summary)
+ordered_EN <- make_pairs(eng_summary)
+```
 
 
 
-
-
-
-*****
-Simulate the sampling distribution of the coefficient (and also the t-statistic)
-
-```{r}
+```{r echo=FALSE}
 logit_coefficient <- function(m){
   return(coef(m)[2])
 }
 
-m_H0_FR <- glm(user_corr ~ correct_resp,
-           data=corr_resp_mfcc_FR)
-boot_m_H0_FR <- car::Boot(logit_m_FR, f=logit_coefficient,
+m_H0_FR_EN <- glm(order(ordered_EN$combo1) ~ order(ordered_FR$combo1))
+boot_m_H0_FR_EN <- car::Boot(m_H0_FR_EN, f=logit_coefficient,
                        r=9999, method="case")
 
+m_H0_EN_all <- glm(order(ordered_EN$combo1) ~ order(ordered_all$combo1))
+boot_m_H0_EN_all <- car::Boot(m_H0_EN_all, f=logit_coefficient,
+                       r=9999, method="case")
 
-m_H0_EN <- glm(user_corr ~ correct_resp,
-           data=corr_resp_mfcc_EN)
-boot_m_H0_EN <- car::Boot(logit_m_EN, f=logit_coefficient,
+m_H0_FR_all <- glm(order(ordered_FR$combo1) ~ order(ordered_all$combo1))
+boot_m_H0_FR_all <- car::Boot(m_H0_FR_all, f=logit_coefficient,
                        r=9999, method="case")
 ```
 
-Histogram of bootstrapped interaction coefficient under H0,
- that coefficient is 0.
 
-```{r}
-hist(boot_m_H0_FR)
-hist(boot_m_H0_EN)
+```{r echo=FALSE}
+hist(boot_m_H0_FR_EN)
+hist(boot_m_H0_EN_all)
+hist(boot_m_H0_FR_all)
 ```
+
+## 5) CONCLUSION
+
+We can confirm that:
+* the acoustic distance has influence on human phone discrimination;
+* participants from different language groups discriminate some phone pairs better than other language group (that is, the order of phone pairs is different between groups).
+
+Native language seems to play an important role in discrimination.

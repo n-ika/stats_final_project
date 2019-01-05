@@ -131,3 +131,44 @@ statistical_power <- function(DATA,
   }
 return(power_df)
 }
+
+
+# ******************************************************************
+# Function 5
+#
+# From the summarised data by language (or unfiltered
+# by language), this function maps the same pairs
+# to the same row and then summarizes the response
+# value [e.g. pair A-B and B-A go to the same row].
+# Additionally, it orders the data frame according
+# to the order of the correct reponse value (from
+# the smallest to the highest).
+#
+# Arguments:
+# - data [e.g. summary, filtered by language]
+# Output: 
+# a data frame with the percent of correct response,
+# ordered by it and with phone pairs in the same row
+
+
+make_pairs <- function(DATA){
+  combo <- DATA %>%
+    dplyr::mutate(
+      combo1 = 
+        paste(phone_TGT, phone_OTH, sep="-"),
+      combo2 =
+        paste(phone_OTH, phone_TGT, sep="-")) %>%
+    dplyr::group_by(combo1, combo2) %>%
+    dplyr::summarise(correct_resp = mean(correct_resp)) %>%
+    dplyr::ungroup()
+  
+  triangle <- make_triangle(combo)
+  
+  triangle  <- triangle %>%
+    dplyr::group_by(combo1) %>%
+    dplyr::summarise(correct_resp = mean(correct_resp)) %>%
+    dplyr::ungroup() 
+  ordered_df <- triangle[order(triangle$correct_resp),]
+  
+  return(ordered_df)
+}
