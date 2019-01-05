@@ -334,6 +334,8 @@ Of course, the orders do not influence one another, but I chose the linear model
 
 Comparing the order 1), the plot seems slightly linear, but it is not graphically completely clear. However, orders 2) and 3) seem graphically linear.
 
+Using `glm()` confirms that the order 1) has a p-value `0.19448` while the other two have p-values below 0.05 and close to 0.
+
 ```{r echo=FALSE}
 plot(order(ordered_EN$combo1), 
      order(ordered_FR$combo1), 
