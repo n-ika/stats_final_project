@@ -306,6 +306,8 @@ means_permuted_plot <- ggplot2::ggplot(means_permuted_df,
                        y = "Count")
 means_permuted_plot
 ```
+
+
 I checked if there is a significant difference between the responses of the two different native language groups.
 
 When checking the mean difference with permutation, the observed mean difference is removed from the center of the distribution of the permuted mean differences. The two groups were simulated by having the 0.5 probability of having responses 0 or 1. The number of the observed mean difference is quite small and close to zero (`-0.056`). However, when permuting the values we see that the observed mean difference lies outside the distribution of the permuted mean differences which are centered at 0.
@@ -333,9 +335,18 @@ Of course, the orders do not influence one another, but I chose the linear model
 Comparing the order 1), the plot seems slightly linear, but it is not graphically completely clear. However, orders 2) and 3) seem graphically linear.
 
 ```{r echo=FALSE}
-plot(order(ordered_EN$combo1), order(ordered_FR$combo1))
-plot(order(ordered_EN$combo1), order(ordered_all$combo1))
-plot(order(ordered_FR$combo1), order(ordered_all$combo1))
+plot(order(ordered_EN$combo1), 
+     order(ordered_FR$combo1), 
+     xlab = "English order",
+     ylab = "French order")
+plot(order(ordered_EN$combo1), 
+     order(ordered_all$combo1),
+     xlab = "English order",
+     ylab = "All order")
+plot(order(ordered_FR$combo1), 
+     order(ordered_all$combo1), 
+     xlab = "French order",
+     ylab = "All order")
 ```
 
 
@@ -384,9 +395,9 @@ boot_m_H0_FR_all <- car::Boot(m_H0_FR_all, f=logit_coefficient,
 
 
 ```{r echo=FALSE}
-hist(boot_m_H0_FR_EN)
-hist(boot_m_H0_EN_all)
-hist(boot_m_H0_FR_all)
+hist(boot_m_H0_FR_EN, xlab = "Order French-English")
+hist(boot_m_H0_EN_all, xlab = "Order English-All")
+hist(boot_m_H0_FR_all, xlab = "Order French-All")
 ```
 
 ## 5) CONCLUSION
