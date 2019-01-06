@@ -25,12 +25,12 @@ In the table, the important columns for this project are:
 * the column with distances subtraction `delta_dist_sub`, 
 * the columns with phones: `phone_TGT`, `phone_OTH`, `phone_X` [this theoretically corresponds to French and English vowel I want to compare in the `STRUT data` experiment].
 
-**There are XXXX parts of the analysis:**
+**There are 4 parts of the analysis:**
 
 * 1) I show which phoneme couple (`TGT` vs. `OTH`) has the lowest discrimination rate for each participant subgroup (I filter them by `language`).
 * 2) I check what the distances differences predict.
 * 3) I compare the human responses to the acoustic distances.
-* 4) I do the order statistics to check which couple of sounds has the lowest discrimination rate with bootstrapping.
+* 4) I do the order statistics to check whether the order of discrimination is the same between the two languages.
 
 ## 1) LOWEST DISCRIMINATION PER LANGUAGE GROUP
 
